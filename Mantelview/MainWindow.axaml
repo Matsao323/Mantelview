@@ -1,0 +1,402 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="560"
+        x:Class="Mantelview.MainWindow"
+        Title="Mantelview"
+        Background="#F9FAFB"
+        CanResize="False"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterScreen">
+    <Window.Styles>
+        <Style Selector="Button.launcher-secondary">
+            <Setter Property="Padding" Value="18,14" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#111827" />
+            <Setter Property="BorderBrush" Value="#D1D5DB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.launcher-secondary:pointerover">
+            <Setter Property="Background" Value="#F3F4F6" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+        </Style>
+
+        <Style Selector="Button.launcher-secondary:pressed">
+            <Setter Property="Background" Value="#E5E7EB" />
+            <Setter Property="BorderBrush" Value="#94A3B8" />
+        </Style>
+
+        <Style Selector="Button.launcher-secondary:focus">
+            <Setter Property="BorderBrush" Value="#60A5FA" />
+        </Style>
+
+        <Style Selector="Button.launcher-secondary:disabled">
+            <Setter Property="Background" Value="#F3F4F6" />
+            <Setter Property="Foreground" Value="#6B7280" />
+            <Setter Property="BorderBrush" Value="#D1D5DB" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <Style Selector="Button.launcher-stepper">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
+        <Style Selector="Button.launcher-primary">
+            <Setter Property="Padding" Value="18,14" />
+            <Setter Property="Background" Value="#2563EB" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#2563EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.launcher-primary:pointerover">
+            <Setter Property="Background" Value="#1D4ED8" />
+            <Setter Property="BorderBrush" Value="#1D4ED8" />
+        </Style>
+
+        <Style Selector="Button.launcher-primary:pressed">
+            <Setter Property="Background" Value="#1E40AF" />
+            <Setter Property="BorderBrush" Value="#1E40AF" />
+        </Style>
+
+        <Style Selector="Button.launcher-primary:focus">
+            <Setter Property="BorderBrush" Value="#93C5FD" />
+        </Style>
+
+        <Style Selector="Button.launcher-primary:disabled">
+            <Setter Property="Background" Value="#93C5FD" />
+            <Setter Property="BorderBrush" Value="#93C5FD" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch">
+            <Setter Property="Width" Value="70" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="#D1D5DB" />
+            <Setter Property="BorderBrush" Value="#D1D5DB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Width="{TemplateBinding Width}"
+                          Height="{TemplateBinding Height}">
+                        <Border x:Name="Track"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}" />
+
+                        <Border x:Name="Thumb"
+                                Width="28"
+                                Height="28"
+                                Margin="3,0,0,0"
+                                Background="#FFFFFF"
+                                BorderBrush="#E5E7EB"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch:pointerover">
+            <Setter Property="Background" Value="#C7CDD8" />
+            <Setter Property="BorderBrush" Value="#C7CDD8" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch:checked">
+            <Setter Property="Background" Value="#60A5FA" />
+            <Setter Property="BorderBrush" Value="#60A5FA" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch:checked:pointerover">
+            <Setter Property="Background" Value="#3B82F6" />
+            <Setter Property="BorderBrush" Value="#3B82F6" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch:focus /template/ Border#Track">
+            <Setter Property="BorderBrush" Value="#2563EB" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch:disabled">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Background" Value="#E5E7EB" />
+            <Setter Property="BorderBrush" Value="#D1D5DB" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch /template/ Border#Thumb">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="3,0,0,0" />
+        </Style>
+
+        <Style Selector="ToggleButton.launcher-switch:checked /template/ Border#Thumb">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,0,3,0" />
+        </Style>
+    </Window.Styles>
+    <Grid Background="#F9FAFB"
+          Margin="32">
+        <StackPanel Width="608"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="18">
+            <Button x:Name="SelectFolderButton"
+                    Classes="launcher-secondary"
+                    MinHeight="56"
+                    FontSize="18"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Click="SelectFolderButton_Click">
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10">
+                    <PathIcon Grid.Column="0"
+                              Width="20" Height="20"
+                              Foreground="#111827"
+                              Data="M2 6C2 4.89543 2.89543 4 4 4H9L11 6H18C19.1046 6 20 6.89543 20 8V16C20 17.1046 19.1046 18 18 18H4C2.89543 18 2 17.1046 2 16V6Z" />
+                    <TextBlock x:Name="SelectFolderButtonText"
+                               Grid.Column="1"
+                               Text="Select Folder"
+                               VerticalAlignment="Center"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+
+            <TextBlock x:Name="StatusText"
+                       FontSize="16"
+                       HorizontalAlignment="Center"
+                       Text="Select a folder that contains .jpg, .jpeg, .png, or .webp files."
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="20">
+                <StackPanel Grid.Column="0"
+                            Spacing="8">
+                    <TextBlock FontSize="16"
+                               Foreground="#374151"
+                               Text="Display time (seconds)" />
+
+                    <Grid ColumnDefinitions="56,*,56"
+                          ColumnSpacing="8">
+                        <Button Grid.Column="0"
+                                Classes="launcher-secondary launcher-stepper"
+                                MinWidth="48"
+                                MinHeight="56"
+                                FontSize="18"
+                                HorizontalContentAlignment="Center"
+                                Click="DisplayTimeDecreaseButton_Click">
+                            <Path Width="18"
+                                  Height="18"
+                                  Data="M3 9H15"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Stroke="#111827"
+                                  StrokeLineCap="Round"
+                                  StrokeThickness="2" />
+                        </Button>
+
+                        <Border Grid.Column="1"
+                                MinHeight="56"
+                                Background="#FFFFFF"
+                                BorderBrush="#D1D5DB"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="12,0">
+                            <TextBlock x:Name="DisplayTimeValueText"
+                                       FontSize="18"
+                                       Foreground="#111827"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Text="5" />
+                        </Border>
+
+                        <Button Grid.Column="2"
+                                Classes="launcher-secondary launcher-stepper"
+                                MinWidth="48"
+                                MinHeight="56"
+                                FontSize="18"
+                                HorizontalContentAlignment="Center"
+                                Click="DisplayTimeIncreaseButton_Click">
+                            <Path Width="18"
+                                  Height="18"
+                                  Data="M9 3V15 M3 9H15"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Stroke="#111827"
+                                  StrokeLineCap="Round"
+                                  StrokeThickness="2" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+
+                <Border x:Name="TransitionTimeSection"
+                        Grid.Column="1"
+                        Background="Transparent">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontSize="16"
+                                   Foreground="#374151"
+                                   Text="Transition time (seconds)" />
+
+                        <Grid ColumnDefinitions="56,*,56"
+                              ColumnSpacing="8">
+                            <Button Grid.Column="0"
+                                    Classes="launcher-secondary launcher-stepper"
+                                    MinWidth="48"
+                                    MinHeight="56"
+                                    FontSize="18"
+                                    HorizontalContentAlignment="Center"
+                                    Click="TransitionTimeDecreaseButton_Click">
+                                <Path Width="18"
+                                      Height="18"
+                                      Data="M3 9H15"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Stroke="#111827"
+                                      StrokeLineCap="Round"
+                                      StrokeThickness="2" />
+                            </Button>
+
+                            <Border Grid.Column="1"
+                                    MinHeight="56"
+                                    Background="#FFFFFF"
+                                    BorderBrush="#D1D5DB"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="12,0">
+                                <TextBlock x:Name="TransitionTimeValueText"
+                                           FontSize="18"
+                                           Foreground="#111827"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="1.0" />
+                            </Border>
+
+                            <Button Grid.Column="2"
+                                    Classes="launcher-secondary launcher-stepper"
+                                    MinWidth="48"
+                                    MinHeight="56"
+                                    FontSize="18"
+                                    HorizontalContentAlignment="Center"
+                                    Click="TransitionTimeIncreaseButton_Click">
+                                <Path Width="18"
+                                      Height="18"
+                                      Data="M9 3V15 M3 9H15"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Stroke="#111827"
+                                      StrokeLineCap="Round"
+                                      StrokeThickness="2" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="20">
+                <Border Grid.Column="0"
+                        Background="#FFFFFF"
+                        BorderBrush="#D1D5DB"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16,14">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="16">
+                        <TextBlock FontSize="16"
+                                   Foreground="#111827"
+                                   VerticalAlignment="Center"
+                                   Text="Shuffle" />
+
+                        <ToggleButton x:Name="ShuffleToggle"
+                                      Grid.Column="1"
+                                      Classes="launcher-switch"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Background="#FFFFFF"
+                        BorderBrush="#D1D5DB"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16,14">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="16">
+                        <TextBlock FontSize="16"
+                                   Foreground="#111827"
+                                   VerticalAlignment="Center"
+                                   Text="E-ink display" />
+
+                        <ToggleButton x:Name="EinkModeToggle"
+                                      Grid.Column="1"
+                                      Classes="launcher-switch"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Button x:Name="PlayButton"
+                    Classes="launcher-primary"
+                    MinHeight="56"
+                    FontSize="20"
+                    FontWeight="SemiBold"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    IsEnabled="False"
+                    Click="PlayButton_Click">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Spacing="10">
+                    <PathIcon Width="18" Height="18"
+                              Foreground="#FFFFFF"
+                              Data="M5 3L19 12L5 21V3Z" />
+                    <TextBlock Text="Play"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

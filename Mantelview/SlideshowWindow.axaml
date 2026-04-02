@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+        x:Class="Mantelview.SlideshowWindow"
+        Title="Mantelview Slideshow"
+        Background="Black"
+        SystemDecorations="None"
+        WindowState="FullScreen">
+    <Window.Styles>
+        <Style Selector="Button.stop-prompt-action">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="#FF2A2A2A" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#FF5B5B5B" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.stop-prompt-action:pointerover">
+            <Setter Property="Background" Value="#FF343434" />
+            <Setter Property="BorderBrush" Value="#FF7A7A7A" />
+        </Style>
+        <Style Selector="Button.stop-prompt-action:pressed">
+            <Setter Property="Background" Value="#FF202020" />
+            <Setter Property="BorderBrush" Value="#FF949494" />
+        </Style>
+        <Style Selector="Button.stop-prompt-action:focus">
+            <Setter Property="Background" Value="#FF2563EB" />
+            <Setter Property="BorderBrush" Value="#FF93C5FD" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="Button.stop-prompt-action:focus:pointerover">
+            <Setter Property="Background" Value="#FF1D4ED8" />
+            <Setter Property="BorderBrush" Value="#FF93C5FD" />
+        </Style>
+        <Style Selector="Button.stop-prompt-action:focus:pressed">
+            <Setter Property="Background" Value="#FF1E40AF" />
+            <Setter Property="BorderBrush" Value="#FFBFDBFE" />
+        </Style>
+    </Window.Styles>
+    <Grid Background="Black">
+        <Image x:Name="SecondaryImage"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch"
+               Stretch="Uniform"
+               Opacity="0" />
+        <Image x:Name="PrimaryImage"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch"
+               Stretch="Uniform"
+               Opacity="0" />
+        <Grid x:Name="StopPromptOverlay"
+              IsVisible="False"
+              Background="#80000000">
+            <Border HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#FF1A1A1A"
+                    CornerRadius="16"
+                    Padding="32">
+                <StackPanel Spacing="24">
+                    <TextBlock HorizontalAlignment="Center"
+                               FontSize="28"
+                               Foreground="White"
+                               Text="Stop slideshow?" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Spacing="24">
+                        <Button x:Name="StopYesButton"
+                                Classes="stop-prompt-action"
+                                MinWidth="120"
+                                MinHeight="80"
+                                FontSize="24"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Click="StopYesButton_Click"
+                                Content="Yes" />
+                        <Button x:Name="StopNoButton"
+                                Classes="stop-prompt-action"
+                                MinWidth="120"
+                                MinHeight="80"
+                                FontSize="24"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                IsDefault="True"
+                                Click="StopNoButton_Click"
+                                Content="No" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
