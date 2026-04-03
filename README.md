@@ -21,6 +21,20 @@ If you need advanced features like EXIF-based playlists, cloud sync, or MQTT dev
 - **Fully offline** — no network, no cloud sync, no accounts. 
 - **Graceful with imperfect folders** — corrupt or unreadable images are silently skipped.
 
+## The only human part
+
+I just needed a fullscreen slideshow that **properly random shuffle** for my old systems. 
+
+- **Entirely AI written code**.
+
+- Runs fine in my systems: stable resource usage, no memory creep, no crash during normal use (though I don't run it 24/7).
+
+- Handles edge cases that I can think of: corrupt path, corrupt files.
+
+- Still adding features that I need.
+
+- Will add a section on resource usage.
+
 ## Quick Start
 
 1. Download the release package for your platform from the [GitHub Releases page](../../releases).
