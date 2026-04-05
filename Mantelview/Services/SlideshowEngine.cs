@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -19,6 +21,7 @@ public delegate Task SlideshowFramePresenter(
 public sealed class SlideshowEngine : IDisposable
 {
     private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan MemoryReclaimInterval = TimeSpan.FromSeconds(30);
 
     private readonly SlideshowConfig _config;
     private readonly ImagePreloader _preloader;
@@ -26,11 +29,13 @@ public sealed class SlideshowEngine : IDisposable
     private readonly SlideshowFramePresenter _framePresenter;
     private readonly DispatcherTimer _timer;
     private readonly DispatcherTimer _watchdogTimer;
+    private readonly DispatcherTimer? _memoryReclaimTimer;
     private readonly CancellationTokenSource _stopCancellationSource = new();
     private CancellationTokenSource? _advanceCancellationSource;
     private Task _advanceTask = Task.CompletedTask;
     private bool _isDisposed;
     private bool _isStopping;
+    private bool _pausePendingAfterAdvance;
     private bool _showPrimarySurface = true;
 
     public SlideshowEngine(
@@ -56,6 +61,12 @@ public sealed class SlideshowEngine : IDisposable
 
         _timer.Tick += Timer_Tick;
         _watchdogTimer.Tick += WatchdogTimer_Tick;
+
+        if (OperatingSystem.IsLinux())
+        {
+            _memoryReclaimTimer = new DispatcherTimer { Interval = MemoryReclaimInterval };
+            _memoryReclaimTimer.Tick += MemoryReclaimTimer_Tick;
+        }
     }
 
     public SlideshowEngineState State { get; private set; }
@@ -98,6 +109,7 @@ public sealed class SlideshowEngine : IDisposable
         TransitionTo(SlideshowEngineState.Displaying);
         _timer.Start();
         _watchdogTimer.Start();
+        _memoryReclaimTimer?.Start();
         return true;
     }
 
@@ -112,6 +124,7 @@ public sealed class SlideshowEngine : IDisposable
         _isStopping = true;
         _timer.Stop();
         _watchdogTimer.Stop();
+        _memoryReclaimTimer?.Stop();
         _stopCancellationSource.Cancel();
         _advanceCancellationSource?.Cancel();
 
@@ -138,6 +151,12 @@ public sealed class SlideshowEngine : IDisposable
         _isDisposed = true;
         _timer.Tick -= Timer_Tick;
         _watchdogTimer.Tick -= WatchdogTimer_Tick;
+        if (_memoryReclaimTimer is not null)
+        {
+            _memoryReclaimTimer.Tick -= MemoryReclaimTimer_Tick;
+            _memoryReclaimTimer.Stop();
+        }
+
         _timer.Stop();
         _watchdogTimer.Stop();
         _advanceCancellationSource?.Cancel();
@@ -158,10 +177,16 @@ public sealed class SlideshowEngine : IDisposable
 
         _timer.Stop();
         _watchdogTimer.Stop();
+        _memoryReclaimTimer?.Stop();
 
         if (State == SlideshowEngineState.Transitioning)
         {
+            _pausePendingAfterAdvance = true;
             _advanceCancellationSource?.Cancel();
+        }
+        else
+        {
+            _pausePendingAfterAdvance = false;
         }
 
         TransitionTo(SlideshowEngineState.Paused);
@@ -176,9 +201,11 @@ public sealed class SlideshowEngine : IDisposable
             return;
         }
 
+        _pausePendingAfterAdvance = false;
         TransitionTo(SlideshowEngineState.Displaying);
         _timer.Start();
         _watchdogTimer.Start();
+        _memoryReclaimTimer?.Start();
     }
 
     public void RequestStop()
@@ -187,6 +214,8 @@ public sealed class SlideshowEngine : IDisposable
 
         _timer.Stop();
         _watchdogTimer.Stop();
+        _memoryReclaimTimer?.Stop();
+        _pausePendingAfterAdvance = false;
         _advanceCancellationSource?.Cancel();
 
         if (State != SlideshowEngineState.Idle)
@@ -267,12 +296,12 @@ public sealed class SlideshowEngine : IDisposable
 
             if (nextBitmap is null)
             {
-                TransitionTo(SlideshowEngineState.Displaying);
+                TransitionTo(_pausePendingAfterAdvance ? SlideshowEngineState.Paused : SlideshowEngineState.Displaying);
                 return;
             }
 
             _showPrimarySurface = !_showPrimarySurface;
-            var effect = _transitionRegistry.GetEffect(_config.IsEinkMode);
+            var effect = _transitionRegistry.GetEffect(_config.IsEinkMode, _config.TransitionEffects);
             await _framePresenter(
                 nextBitmap,
                 _showPrimarySurface,
@@ -281,7 +310,8 @@ public sealed class SlideshowEngine : IDisposable
                 cancellationToken).ConfigureAwait(true);
 
             _preloader.CommitTransition();
-            TransitionTo(SlideshowEngineState.Displaying);
+            TransitionTo(_pausePendingAfterAdvance ? SlideshowEngineState.Paused : SlideshowEngineState.Displaying);
+            _pausePendingAfterAdvance = false;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -289,7 +319,8 @@ public sealed class SlideshowEngine : IDisposable
         catch (Exception ex) when (IsRecoverableFrameFailure(ex))
         {
             _preloader.RetirePendingPath();
-            TransitionTo(SlideshowEngineState.Displaying);
+            TransitionTo(_pausePendingAfterAdvance ? SlideshowEngineState.Paused : SlideshowEngineState.Displaying);
+            _pausePendingAfterAdvance = false;
         }
         finally
         {
@@ -335,6 +366,8 @@ public sealed class SlideshowEngine : IDisposable
 
     private static bool IsRecoverableFrameFailure(Exception exception)
     {
+        exception = UnwrapRecoverableException(exception);
+
         return exception is IOException
             or UnauthorizedAccessException
             or ArgumentException
@@ -347,6 +380,53 @@ public sealed class SlideshowEngine : IDisposable
     {
         return exception is ObjectDisposedException || IsRecoverableFrameFailure(exception);
     }
+
+    private static Exception UnwrapRecoverableException(Exception exception)
+    {
+        while (true)
+        {
+            switch (exception)
+            {
+                case TargetInvocationException { InnerException: not null } targetInvocationException:
+                    exception = targetInvocationException.InnerException!;
+                    continue;
+                case AggregateException { InnerExceptions.Count: 1 } aggregateException when aggregateException.InnerException is not null:
+                    exception = aggregateException.InnerException!;
+                    continue;
+                default:
+                    return exception;
+            }
+        }
+    }
+
+    // Nudge glibc to return freed native arenas so Linux RSS stays honest.
+    // Runs on a background thread during Displaying state only — never during transitions.
+    private void MemoryReclaimTimer_Tick(object? sender, EventArgs e)
+    {
+        if (State != SlideshowEngineState.Displaying)
+        {
+            return;
+        }
+
+        Task.Run(TryMallocTrim);
+    }
+
+    private static void TryMallocTrim()
+    {
+        try
+        {
+            _ = MallocTrim(0);
+        }
+        catch (DllNotFoundException)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+    }
+
+    [DllImport("libc", EntryPoint = "malloc_trim")]
+    private static extern int MallocTrim(nuint pad);
 
     private void ThrowIfDisposed()
     {

@@ -5,6 +5,15 @@ using Avalonia.Controls;
 
 namespace Mantelview.Services;
 
+public enum TransitionDirection
+{
+    None,
+    Left,
+    Right,
+    Up,
+    Down,
+}
+
 public interface ITransitionEffect
 {
     string Name { get; }

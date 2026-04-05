@@ -8,7 +8,6 @@ public static class FolderSelectionEvaluator
 {
     public const string BlockedFolderMessage = "This folder cannot be used.";
     public const string FolderNotAccessibleMessage = "Folder not found or not accessible.";
-    public const string MaxImagesReachedMessage = "Folder contains more than 500,000 images. Only the first 500,000 will be shown.";
 
     public static FolderSelectionEvaluation Evaluate(SlideshowConfig config)
     {
@@ -23,14 +22,19 @@ public static class FolderSelectionEvaluator
             return new FolderSelectionEvaluation(IsValid: false, Message: FolderNotAccessibleMessage, IsError: true);
         }
 
-        if (!ImageCatalog.TryCountSupportedImages(folderPath, out var supportedImageCount, out var maxImagesReached, config.UnsafeFormats))
+        if (!ImageCatalog.TryCountSupportedImages(
+                folderPath,
+                out var supportedImageCount,
+                out var catalogLimitReached,
+                config.UnsafeFormats,
+                config.MaxCatalogImages))
         {
             return new FolderSelectionEvaluation(IsValid: false, Message: FolderNotAccessibleMessage, IsError: true);
         }
 
-        if (maxImagesReached)
+        if (catalogLimitReached && config.MaxCatalogImages is int maxCatalogImages)
         {
-            return new FolderSelectionEvaluation(IsValid: true, Message: MaxImagesReachedMessage, IsError: false);
+            return new FolderSelectionEvaluation(IsValid: true, Message: ImageCatalog.FormatCatalogLimitMessage(maxCatalogImages), IsError: false);
         }
 
         return supportedImageCount == 0

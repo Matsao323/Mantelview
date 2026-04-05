@@ -7,7 +7,7 @@ namespace Mantelview.Services;
 
 public sealed class CutTransition : ITransitionEffect
 {
-    public string Name => "Cut";
+    public string Name => TransitionRegistry.CutName;
 
     public Task ApplyAsync(Control outgoing, Control incoming, double width, double height, TimeSpan duration, CancellationToken cancellationToken)
     {

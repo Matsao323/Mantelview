@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Mantelview.Services;
 
 namespace Mantelview.Models;
 
@@ -23,6 +24,8 @@ public sealed class SlideshowConfig
     public const double MinEinkImageDurationSec = 3.0;
     public const double MinTransitionDurationSec = 0.5;
     public const double MaxTransitionDurationSec = 5.0;
+    public const string BlackBackgroundColor = "black";
+    public const string WhiteBackgroundColor = "white";
 
     private static readonly string[] LinuxBlockedPrefixes =
     [
@@ -70,6 +73,11 @@ public sealed class SlideshowConfig
     public bool IsEinkMode { get; set; }
 
     /// <summary>
+    /// Canonical transition class names eligible for random selection. Defaults to Crossfade.
+    /// </summary>
+    public string[] TransitionEffects { get; set; } = [TransitionRegistry.CrossfadeName];
+
+    /// <summary>
     /// Optional opt-in list of additional image formats permitted for discovery.
     /// </summary>
     public string[]? UnsafeFormats { get; set; }
@@ -88,6 +96,16 @@ public sealed class SlideshowConfig
     /// Optional IPC secret required to prefix Linux socket commands.
     /// </summary>
     public string? IpcSecret { get; set; }
+
+    /// <summary>
+    /// Optional advanced cap on the number of ordered images loaded into the catalog.
+    /// </summary>
+    public int? MaxCatalogImages { get; set; }
+
+    /// <summary>
+    /// Optional background color shown behind letterboxed or pillarboxed images.
+    /// </summary>
+    public string? BackgroundColor { get; set; }
 
     /// <summary>
     /// Returns the effective image duration after applying runtime constraints.
@@ -175,6 +193,33 @@ public sealed class SlideshowConfig
         return normalizedFormats.Count > 0
             ? [.. normalizedFormats]
             : null;
+    }
+
+    public static int? NormalizeMaxCatalogImages(int? value)
+    {
+        return value is > 0
+            ? value
+            : null;
+    }
+
+    public static string? NormalizeBackgroundColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            BlackBackgroundColor => BlackBackgroundColor,
+            WhiteBackgroundColor => WhiteBackgroundColor,
+            _ => null,
+        };
+    }
+
+    public static string ResolveBackgroundColor(string? value)
+    {
+        return NormalizeBackgroundColor(value) ?? BlackBackgroundColor;
     }
 
     private static bool MatchesBlockedPrefix(string resolvedPath, string[] blockedPrefixes, StringComparison comparison)

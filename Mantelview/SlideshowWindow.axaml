@@ -55,7 +55,8 @@
             <Setter Property="BorderBrush" Value="#FFBFDBFE" />
         </Style>
     </Window.Styles>
-    <Grid Background="Black">
+    <Grid x:Name="FrameHost"
+          Background="Black">
         <Image x:Name="SecondaryImage"
                HorizontalAlignment="Stretch"
                VerticalAlignment="Stretch"
@@ -66,8 +67,28 @@
                VerticalAlignment="Stretch"
                Stretch="Uniform"
                Opacity="0" />
+        <Border x:Name="CatalogLimitNotice"
+                IsVisible="False"
+                IsHitTestVisible="False"
+                ZIndex="10"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="24"
+                Background="#CC111827"
+                BorderBrush="#FF60A5FA"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="18,12">
+            <TextBlock x:Name="CatalogLimitNoticeText"
+                       MaxWidth="720"
+                       FontSize="18"
+                       Foreground="White"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </Border>
         <Grid x:Name="StopPromptOverlay"
               IsVisible="False"
+              ZIndex="20"
               Background="#80000000">
             <Border HorizontalAlignment="Center"
                     VerticalAlignment="Center"

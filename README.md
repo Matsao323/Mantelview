@@ -1,6 +1,6 @@
 # Mantelview
 
-A cross-platform fullscreen image slideshow for desktop digital picture frames and smart home kiosk displays. Download one binary, point it at a folder of images, and press Play.
+A cross-platform fullscreen image slideshow for desktop digital picture frames and smart home kiosk displays. Shuffles properly with random order every cycle. Download one binary, point it at a folder of images, and press Play.
 
 ![Mantelview launcher](assets/launcher-screenshot.png)
 
@@ -15,6 +15,7 @@ If you need advanced features like EXIF-based playlists, cloud sync, or MQTT dev
 - **Extract and run** — a single self-contained binary with no runtime to install. Download, extract, double-click.
 - **Cross-platform** — one app for Windows 10/11 x64, Debian 12+ x64, and Raspberry Pi OS Bookworm ARM64.
 - **GUI launcher** — select a folder, set display time, pick shuffle or in-order, and press Play.
+- **Configurable transition effects** — choose slideshow transition effects during playback in config file. 
 - **E-ink display mode** — hard cuts instead of animated transitions, with an enforced minimum display time for e-ink and e-paper screens.
 - **Local remote control on Linux** — a Linux Unix domain socket lets scripts and sensors on the same machine control playback without simulating keyboard input.
 - **Kiosk-safe** — hold-Escape-to-exit failsafe, automatic watchdog, and configurable key filtering for IR remotes and GPIO-wired sensors.
@@ -29,11 +30,11 @@ I just needed a fullscreen slideshow that **properly random shuffle** for my old
 
 - Runs fine in my systems: stable resource usage, no memory creep, no crash during normal use (though I don't run it 24/7).
 
+- See [Resource Footprint](RESOURCE-FOOTPRINT.md) for measured RAM and CPU usage on my systems.
+
 - Handles edge cases that I can think of: corrupt path, corrupt files.
 
-- Still adding features that I need.
-
-- Will add a section on resource usage.
+- Still adding features that I need. Todo: UI for transition effects and color picker. Maybe more transition effects.
 
 ## Quick Start
 
@@ -45,7 +46,33 @@ I just needed a fullscreen slideshow that **properly random shuffle** for my old
 4. Click **Select Folder** and choose a local folder containing images.
 5. Adjust the launcher options if needed, then click **Play**.
 
+Windows binary is not code signed, so you will get a warning when trying to execute it.
+
 If the selected folder contains no supported images (including in subfolders), the launcher shows an error message and the Play button stays disabled. During playback, any image that fails to decode is silently removed from the display set so the slideshow continues without interruption.
+
+## Direct Launch / Screensaver Mode
+
+If you already have a saved `MantelviewConfig.json`, you can start playback directly instead of opening the launcher first.
+
+Linux:
+
+```sh
+./Mantelview --slideshow
+```
+
+Windows:
+
+```powershell
+.\Mantelview.exe --slideshow
+```
+
+Behavior:
+
+- Mantelview loads the saved `MantelviewConfig.json` next to the executable and tries to start the slideshow immediately.
+- If the saved config is missing, invalid, or points at a folder with no supported images, Mantelview falls back to the normal launcher.
+- Before relying on `--slideshow` for unattended use, start Mantelview once in normal launcher mode and confirm the config loads without warnings.
+- This is especially important after editing `MantelviewConfig.json` by hand: if a field such as `IgnoredKeys` is malformed, Mantelview may recover by falling back to defaults, and that warning is not visible in direct-launch/screensaver use.
+- When the slideshow is closed in this mode, the app exits instead of returning to the launcher.
 
 ## Supported Platforms
 
@@ -77,19 +104,22 @@ Headless kiosk mode via Avalonia's `--drm` path is not currently supported. Mant
 
 `MantelviewConfig.json` is stored next to the executable. It is created automatically on first run so your settings persist across launches. You can also edit it with a text editor while the app is closed.
 
-Settings controlled by the launcher are written automatically. Advanced fields (`Topmost`, `UnsafeFormats`, `IpcSecret`, `IgnoredKeys`) are manual-only, but Mantelview preserves them when the launcher saves.
+Settings controlled by the launcher are written automatically. Optional fields (`Topmost`, `MaxCatalogImages`, `UnsafeFormats`, `IpcSecret`, `IgnoredKeys`) are manual-only, but Mantelview preserves them when the launcher saves. Manual-only fields are preserved on save when valid, but malformed manual fields may be dropped during recovery.
 
-| Field                   | Type         | Notes                                                                                               |
-| ----------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
-| `FolderPath`            | string       | Absolute path to the image folder.                                                                  |
-| `PlaybackMode`          | string       | `InOrder` or `Random`.                                                                              |
-| `ImageDurationSec`      | number       | Seconds per image (1–300). Effective minimum of 3 while `IsEinkMode` is true.                       |
-| `TransitionDurationSec` | number       | Seconds per transition (0.5–5.0).                                                                   |
-| `IsEinkMode`            | boolean      | Hard cuts, no animated transitions, 3-second floor on display time.                                 |
-| `Topmost`               | boolean      | Keeps the slideshow above other windows. Useful for kiosk setups.                                   |
-| `UnsafeFormats`         | string array | Opt-in for `bmp` and/or `gif`. See [Image Format Restrictions](#image-format-restrictions).         |
-| `IpcSecret`             | string       | Shared secret for Linux remote-control commands. See [Remote Control](#remote-control-linux).       |
-| `IgnoredKeys`           | string array | Replacement list for keys that should not trigger the stop prompt. See [IgnoredKeys](#ignoredkeys). |
+| Field                   | Type         | Notes                                                                                                                |
+| ----------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `FolderPath`            | string       | Absolute path to the image folder.                                                                                   |
+| `PlaybackMode`          | string       | `InOrder` or `Random`.                                                                                               |
+| `ImageDurationSec`      | number       | Seconds per image (1–300). Effective minimum of 3 while `IsEinkMode` is true.                                        |
+| `TransitionDurationSec` | number       | Seconds per transition (0.5–5.0).                                                                                    |
+| `TransitionEffects`     | string array | Optional list of transition effect names eligible for random selection. See [TransitionEffects](#transitioneffects). |
+| `IsEinkMode`            | boolean      | Hard cuts, no animated transitions, 3-second floor on display time.                                                  |
+| `BackgroundColor`       | string       | Optional slideshow background behind letterboxed or pillarboxed images. Valid values: `black`, `white`.              |
+| `Topmost`               | boolean      | Keeps the slideshow above other windows. Useful for kiosk setups.                                                    |
+| `MaxCatalogImages`      | integer      | Optional advanced cap. When set, only the first `N` images in Mantelview's deterministic filename order are loaded.  |
+| `UnsafeFormats`         | string array | Opt-in for `bmp` and/or `gif`. See [Image Format Restrictions](#image-format-restrictions).                          |
+| `IpcSecret`             | string       | Shared secret for Linux remote-control commands. See [Remote Control](#remote-control-linux).                        |
+| `IgnoredKeys`           | string array | Replacement list for keys that should not trigger the stop prompt. See [IgnoredKeys](#ignoredkeys).                  |
 
 Example:
 
@@ -99,13 +129,51 @@ Example:
   "PlaybackMode": "Random",
   "ImageDurationSec": 20,
   "TransitionDurationSec": 1.5,
+  "TransitionEffects": ["Crossfade", "Uncover"],
   "IsEinkMode": false,
+  "BackgroundColor": "white",
   "Topmost": true,
+  "MaxCatalogImages": 100000,
   "UnsafeFormats": ["bmp"],
   "IpcSecret": "replace-with-a-random-secret",
   "IgnoredKeys": ["F1", "MediaPlayPause", "VolumeUp", "Insert"]
 }
 ```
+
+### BackgroundColor
+
+`BackgroundColor` is an optional string that controls the slideshow background behind images that do not fill the screen.
+
+- Valid values are `black` and `white`.
+- If omitted, Mantelview uses the default `black` background.
+- If the value is malformed, Mantelview drops it, treats the setting as `null` internally, and falls back to `black`.
+- After a later save, that dropped malformed field is removed from `MantelviewConfig.json` rather than preserved.
+
+### TransitionEffects
+
+`TransitionEffects` is an optional string array that controls which animated transition effects Mantelview may pick during normal playback.
+
+- Valid effect names are `Crossfade`, `Slide`, `Cover`, `Uncover`, `SmartSlide`, and `Cut`.
+
+- Mantelview picks randomly from the configured list for each transition.
+
+- `Cut` ignores TransitionDurationSec and is always instantaneous.
+
+- Invalid names are dropped during config load.
+
+- If the field is missing, empty, or every entry is invalid, Mantelview falls back to `Crossfade`.
+
+- `IsEinkMode` still forces hard cuts during playback, regardless of the configured animated transition list.
+
+### MaxCatalogImages
+
+`MaxCatalogImages` is an optional positive integer for very large folders, especially on lower-memory systems such as Raspberry Pi.
+
+- If omitted, Mantelview does not apply a built-in global catalog cap.
+- If set, Mantelview keeps only the first `N` images in its deterministic filename order.
+- When truncation happens, Mantelview warns in the launcher and shows a brief startup notice in the fullscreen slideshow.
+
+Use this only when you want to trade full library coverage for lower startup memory pressure. If later images never appear, either raise the limit or split the folder into smaller trees.
 
 ### UnsafeFormats
 
@@ -118,7 +186,9 @@ Example:
 - If present, it **replaces** the entire default allowlist.
 - Any key you leave out of a custom list will trigger the stop prompt if pressed during playback.
 - `Escape` is always reserved for the emergency kill switch and cannot be overridden.
-- Key names must match Avalonia `Key` enum names. Invalid names are silently ignored. If every name is invalid, Mantelview falls back to the built-in defaults.
+- Key names must match Avalonia `Key` enum names.
+- `IgnoredKeys` is validated as a whole. If any entry is invalid, Mantelview discards the entire field, falls back to the built-in default ignored-key list, and shows a recovery warning in the launcher.
+- After a recovery, the invalid `IgnoredKeys` field is removed from `MantelviewConfig.json` rather than preserved. Your previous entry can be found in the backup config file `MantelviewConfig.json.bak` generated during recovery.
 
 Default allowlist for reference:
 

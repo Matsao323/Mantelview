@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -21,11 +23,13 @@ namespace Mantelview;
 public partial class SlideshowWindow : Window
 {
     private static readonly TimeSpan EscapeHoldThreshold = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan CatalogLimitNoticeDuration = TimeSpan.FromSeconds(6);
     private const int BytesPerPixel = 4;
     private readonly SlideshowConfig _config;
     private readonly ImageCatalog? _catalog;
     private readonly Stopwatch _escapeStopwatch = new();
     private readonly DispatcherTimer _escapeTimer;
+    private readonly DispatcherTimer _catalogLimitNoticeTimer;
     private readonly InputFilter _inputFilter;
     private bool _escapeHeld;
     private bool _pipelineDisposed;
@@ -47,14 +51,21 @@ public partial class SlideshowWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(250),
         };
+        _catalogLimitNoticeTimer = new DispatcherTimer
+        {
+            Interval = CatalogLimitNoticeDuration,
+        };
 
         InitializeComponent();
+        ApplyConfiguredBackgroundColor();
+        ResetFrameSurfaceOrder();
         Topmost = _config.Topmost;
 
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnPreviewKeyUp, RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
         _escapeTimer.Tick += EscapeTimer_Tick;
+        _catalogLimitNoticeTimer.Tick += CatalogLimitNoticeTimer_Tick;
         Opened += SlideshowWindow_Opened;
         Closed += SlideshowWindow_Closed;
     }
@@ -108,6 +119,13 @@ public partial class SlideshowWindow : Window
 
     public event EventHandler? FramePresented;
 
+    private void ApplyConfiguredBackgroundColor()
+    {
+        var backgroundBrush = ResolveBackgroundBrush(_config.BackgroundColor);
+        Background = backgroundBrush;
+        FrameHost.Background = backgroundBrush;
+    }
+
     internal static Bitmap LoadBitmapForScreen(string imagePath, PixelSize screenSize)
     {
         var metadata = TryReadImageMetadata(imagePath, out var parsedMetadata)
@@ -144,6 +162,13 @@ public partial class SlideshowWindow : Window
     private static bool ShouldDecodeToWidth(PixelSize imageSize, PixelSize screenSize)
     {
         return (long)screenSize.Width * imageSize.Height <= (long)screenSize.Height * imageSize.Width;
+    }
+
+    private static IBrush ResolveBackgroundBrush(string? configuredBackgroundColor)
+    {
+        return SlideshowConfig.ResolveBackgroundColor(configuredBackgroundColor) == SlideshowConfig.WhiteBackgroundColor
+            ? Brushes.White
+            : Brushes.Black;
     }
 
     private static WriteableBitmap DecodeBitmapForScreen(Stream decodeStream, ImageDecodeMetadata metadata, PixelSize screenSize)
@@ -576,6 +601,7 @@ public partial class SlideshowWindow : Window
     private void SlideshowWindow_Opened(object? sender, EventArgs e)
     {
         _escapeTimer.Start();
+        ShowCatalogLimitNoticeIfNeeded();
     }
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
@@ -589,6 +615,11 @@ public partial class SlideshowWindow : Window
             }
 
             e.Handled = true;
+            return;
+        }
+
+        if (StopPromptOverlay.IsVisible)
+        {
             return;
         }
 
@@ -627,6 +658,11 @@ public partial class SlideshowWindow : Window
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (StopPromptOverlay.IsVisible)
+        {
+            return;
+        }
+
         if (_engine is not null && _engine.State is SlideshowEngineState.Displaying or SlideshowEngineState.Transitioning)
         {
             ShowStopPrompt();
@@ -640,8 +676,11 @@ public partial class SlideshowWindow : Window
         Closed -= SlideshowWindow_Closed;
         _escapeTimer.Tick -= EscapeTimer_Tick;
         _escapeTimer.Stop();
+        _catalogLimitNoticeTimer.Tick -= CatalogLimitNoticeTimer_Tick;
+        _catalogLimitNoticeTimer.Stop();
         _escapeStopwatch.Reset();
         _escapeHeld = false;
+        CatalogLimitNotice.IsVisible = false;
 
         try
         {
@@ -694,12 +733,9 @@ public partial class SlideshowWindow : Window
         var outgoing = showPrimarySurface ? SecondaryImage : PrimaryImage;
 
         incoming.Source = bitmap;
-        incoming.Opacity = effect is CutTransition ? 1 : 0;
-
-        if (outgoing.Source is null)
-        {
-            outgoing.Opacity = 0;
-        }
+        ResetFrameSurface(incoming, preserveSource: true);
+        ResetFrameSurface(outgoing, preserveSource: true, opacity: outgoing.Source is null ? 0 : outgoing.Opacity);
+        ApplyTransitionSurfaceOrder(effect, incoming, outgoing);
 
         try
         {
@@ -721,26 +757,70 @@ public partial class SlideshowWindow : Window
             RestorePreviousFrame(incoming, outgoing);
             throw;
         }
+        finally
+        {
+            ResetFrameSurfaceOrder();
+        }
 
         outgoing.Source = null;
-        outgoing.Opacity = 0;
-        incoming.Opacity = 1;
+        ResetFrameSurface(outgoing);
+        ResetFrameSurface(incoming, preserveSource: true, opacity: 1);
         FramePresented?.Invoke(this, EventArgs.Empty);
     }
 
     private static void RestorePreviousFrame(Image incoming, Image outgoing)
     {
-        incoming.Source = null;
-        incoming.Opacity = 0;
+        ResetFrameSurface(incoming);
+        ResetFrameSurface(outgoing, preserveSource: true, opacity: outgoing.Source is null ? 0 : 1);
+    }
 
-        if (outgoing.Source is not null)
+    private static void ResetFrameSurface(Image surface, bool preserveSource = false, double opacity = 0)
+    {
+        if (!preserveSource)
         {
-            outgoing.Opacity = 1;
+            surface.Source = null;
         }
+
+        surface.Opacity = opacity;
+        surface.RenderTransform = null;
+    }
+
+    private void ApplyTransitionSurfaceOrder(ITransitionEffect effect, Image incoming, Image outgoing)
+    {
+        if (effect is CoverTransition)
+        {
+            incoming.ZIndex = 1;
+            outgoing.ZIndex = 0;
+            return;
+        }
+
+        if (effect is UncoverTransition)
+        {
+            outgoing.ZIndex = 1;
+            incoming.ZIndex = 0;
+            return;
+        }
+
+        if (effect is SmartSlideTransition)
+        {
+            outgoing.ZIndex = 1;
+            incoming.ZIndex = 0;
+            return;
+        }
+
+        ResetFrameSurfaceOrder();
+    }
+
+    private void ResetFrameSurfaceOrder()
+    {
+        PrimaryImage.ZIndex = 1;
+        SecondaryImage.ZIndex = 0;
     }
 
     private static bool IsRecoverableFrameFailure(Exception exception)
     {
+        exception = UnwrapRecoverableException(exception);
+
         return exception is IOException
             or UnauthorizedAccessException
             or ArgumentException
@@ -752,6 +832,24 @@ public partial class SlideshowWindow : Window
     private static bool IsRecoverableShutdownFailure(Exception exception)
     {
         return exception is ObjectDisposedException || IsRecoverableFrameFailure(exception);
+    }
+
+    private static Exception UnwrapRecoverableException(Exception exception)
+    {
+        while (true)
+        {
+            switch (exception)
+            {
+                case TargetInvocationException { InnerException: not null } targetInvocationException:
+                    exception = targetInvocationException.InnerException!;
+                    continue;
+                case AggregateException { InnerExceptions.Count: 1 } aggregateException when aggregateException.InnerException is not null:
+                    exception = aggregateException.InnerException!;
+                    continue;
+                default:
+                    return exception;
+            }
+        }
     }
 
     private void ShowStopPrompt()
@@ -813,6 +911,7 @@ public partial class SlideshowWindow : Window
 
     private async Task ReleaseImageSourcesAsync()
     {
+        CatalogLimitNotice.IsVisible = false;
         StopPromptOverlay.IsVisible = false;
         PrimaryImage.Source = null;
         SecondaryImage.Source = null;
@@ -855,6 +954,30 @@ public partial class SlideshowWindow : Window
 
     [DllImport("libc", EntryPoint = "malloc_trim")]
     private static extern int MallocTrim(nuint pad);
+
+    private void ShowCatalogLimitNoticeIfNeeded()
+    {
+        if (_catalog is null || !_catalog.IsTruncated)
+        {
+            return;
+        }
+
+        if (_catalog.CatalogLimit is not int catalogLimit)
+        {
+            return;
+        }
+
+        CatalogLimitNoticeText.Text = ImageCatalog.FormatCatalogLimitMessage(catalogLimit);
+        CatalogLimitNotice.IsVisible = true;
+        _catalogLimitNoticeTimer.Stop();
+        _catalogLimitNoticeTimer.Start();
+    }
+
+    private void CatalogLimitNoticeTimer_Tick(object? sender, EventArgs e)
+    {
+        _catalogLimitNoticeTimer.Stop();
+        CatalogLimitNotice.IsVisible = false;
+    }
 
     private void OnStopRequested()
     {

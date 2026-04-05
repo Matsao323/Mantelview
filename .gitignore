@@ -22,6 +22,7 @@ obj/
 Thumbs.db
 *.Zone.Identifier
 *:Zone.Identifier
+.codex
 
 ## Build outputs
 publish/

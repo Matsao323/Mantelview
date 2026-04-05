@@ -9,8 +9,6 @@ namespace Mantelview.Models;
 
 public sealed class ImageCatalog
 {
-    public const int MaxImages = 500_000;
-
     private static readonly string[] DefaultSupportedImageExtensions =
     [
         ".jpg",
@@ -23,14 +21,16 @@ public sealed class ImageCatalog
     private readonly List<string> _paths;
     private readonly PlaybackMode _playbackMode;
     private readonly List<int> _randomOrder;
+    private readonly int? _catalogLimit;
     private int _nextIndex;
 
-    private ImageCatalog(string[] paths, PlaybackMode playbackMode, bool maxImagesReached)
+    private ImageCatalog(string[] paths, PlaybackMode playbackMode, int? catalogLimit, bool isTruncated)
     {
         _paths = [.. paths];
         _playbackMode = playbackMode;
         _randomOrder = [.. Enumerable.Range(0, paths.Length)];
-        MaxImagesReached = maxImagesReached;
+        _catalogLimit = catalogLimit;
+        IsTruncated = isTruncated;
 
         if (_playbackMode == PlaybackMode.Random && _randomOrder.Count > 1)
         {
@@ -49,7 +49,9 @@ public sealed class ImageCatalog
         }
     }
 
-    public bool MaxImagesReached { get; }
+    public bool IsTruncated { get; }
+
+    public int? CatalogLimit => _catalogLimit;
 
     public event EventHandler? CycleCompleted;
 
@@ -162,22 +164,16 @@ public sealed class ImageCatalog
         PlaybackMode playbackMode,
         [NotNullWhen(true)] out ImageCatalog? catalog,
         IReadOnlyList<string>? unsafeFormats = null,
+        int? maxCatalogImages = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var discoveredPaths = EnumerateSupportedImagePaths(folderPath, unsafeFormats, cancellationToken)
-                .Select(path => new OrderedImagePath(path, Path.GetRelativePath(folderPath, path)))
-                .OrderBy(entry => entry.RelativePath, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(entry => entry.RelativePath, StringComparer.Ordinal)
-                .Take(MaxImages + 1)
-                .Select(entry => entry.Path)
-                .ToArray();
-
-            var maxImagesReached = discoveredPaths.Length > MaxImages;
-            var paths = maxImagesReached
-                ? discoveredPaths.Take(MaxImages).ToArray()
-                : discoveredPaths;
+            var normalizedLimit = SlideshowConfig.NormalizeMaxCatalogImages(maxCatalogImages);
+            var isTruncated = false;
+            var paths = normalizedLimit is int limit
+                ? LoadPathsWithLimit(folderPath, unsafeFormats, limit, out isTruncated, cancellationToken)
+                : LoadAllPaths(folderPath, unsafeFormats, cancellationToken);
 
             if (paths.Length == 0)
             {
@@ -185,7 +181,11 @@ public sealed class ImageCatalog
                 return false;
             }
 
-            catalog = new ImageCatalog(paths, playbackMode, maxImagesReached);
+            catalog = new ImageCatalog(
+                paths,
+                playbackMode,
+                normalizedLimit,
+                isTruncated);
             return true;
         }
         catch (IOException)
@@ -203,23 +203,25 @@ public sealed class ImageCatalog
     public static bool TryCountSupportedImages(
         string folderPath,
         out int supportedImageCount,
-        out bool maxImagesReached,
+        out bool catalogLimitReached,
         IReadOnlyList<string>? unsafeFormats = null,
+        int? maxCatalogImages = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
             supportedImageCount = 0;
-            maxImagesReached = false;
+            catalogLimitReached = false;
+            var normalizedLimit = SlideshowConfig.NormalizeMaxCatalogImages(maxCatalogImages);
 
             foreach (var _ in EnumerateSupportedImagePaths(folderPath, unsafeFormats, cancellationToken))
             {
                 supportedImageCount++;
 
-                if (supportedImageCount > MaxImages)
+                if (normalizedLimit is int limit && supportedImageCount > limit)
                 {
-                    supportedImageCount = MaxImages;
-                    maxImagesReached = true;
+                    supportedImageCount = limit;
+                    catalogLimitReached = true;
                     return true;
                 }
             }
@@ -229,20 +231,88 @@ public sealed class ImageCatalog
         catch (IOException)
         {
             supportedImageCount = 0;
-            maxImagesReached = false;
+            catalogLimitReached = false;
             return false;
         }
         catch (UnauthorizedAccessException)
         {
             supportedImageCount = 0;
-            maxImagesReached = false;
+            catalogLimitReached = false;
             return false;
         }
+    }
+
+    public static string FormatCatalogLimitMessage(int catalogLimit)
+    {
+        return $"Folder contains more than {catalogLimit:N0} supported images. Playback will use the first {catalogLimit:N0} in Mantelview's filename order.";
     }
 
     private static bool IsSupportedImagePath(string path, IReadOnlySet<string> supportedExtensions)
     {
         return supportedExtensions.Contains(Path.GetExtension(path));
+    }
+
+    private static string[] LoadAllPaths(
+        string folderPath,
+        IReadOnlyList<string>? unsafeFormats,
+        CancellationToken cancellationToken)
+    {
+        return EnumerateSupportedImagePaths(folderPath, unsafeFormats, cancellationToken)
+            .Select(path => new OrderedImagePath(path, Path.GetRelativePath(folderPath, path)))
+            .OrderBy(entry => entry.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.RelativePath, StringComparer.Ordinal)
+            .Select(entry => entry.Path)
+            .ToArray();
+    }
+
+    private static string[] LoadPathsWithLimit(
+        string folderPath,
+        IReadOnlyList<string>? unsafeFormats,
+        int catalogLimit,
+        out bool isTruncated,
+        CancellationToken cancellationToken)
+    {
+        var priorityQueue = new PriorityQueue<OrderedImagePath, OrderedImagePath>(CatalogLimitComparer.Instance);
+        var queueCapacity = catalogLimit == int.MaxValue
+            ? int.MaxValue
+            : catalogLimit + 1;
+
+        foreach (var path in EnumerateSupportedImagePaths(folderPath, unsafeFormats, cancellationToken))
+        {
+            var orderedPath = new OrderedImagePath(path, Path.GetRelativePath(folderPath, path));
+
+            if (priorityQueue.Count < queueCapacity)
+            {
+                priorityQueue.Enqueue(orderedPath, orderedPath);
+                continue;
+            }
+
+            if (CatalogOrderComparer.Instance.Compare(orderedPath, priorityQueue.Peek()) >= 0)
+            {
+                continue;
+            }
+
+            _ = priorityQueue.Dequeue();
+            priorityQueue.Enqueue(orderedPath, orderedPath);
+        }
+
+        var orderedPaths = new OrderedImagePath[priorityQueue.Count];
+        for (var index = 0; index < orderedPaths.Length; index++)
+        {
+            orderedPaths[index] = priorityQueue.Dequeue();
+        }
+
+        Array.Sort(orderedPaths, CatalogOrderComparer.Instance);
+
+        isTruncated = orderedPaths.Length > catalogLimit;
+        if (isTruncated)
+        {
+            Array.Resize(ref orderedPaths, catalogLimit);
+        }
+
+        return orderedPaths
+            .Select(static entry => entry.Path)
+            .ToArray();
     }
 
     private int ResolveCurrentPathIndexLocked()
@@ -378,4 +448,27 @@ public sealed class ImageCatalog
     private readonly record struct DirectoryEntry(string Path, bool IsDirectory);
 
     private readonly record struct OrderedImagePath(string Path, string RelativePath);
+
+    private sealed class CatalogOrderComparer : IComparer<OrderedImagePath>
+    {
+        public static CatalogOrderComparer Instance { get; } = new();
+
+        public int Compare(OrderedImagePath left, OrderedImagePath right)
+        {
+            var caseInsensitiveComparison = StringComparer.OrdinalIgnoreCase.Compare(left.RelativePath, right.RelativePath);
+            return caseInsensitiveComparison != 0
+                ? caseInsensitiveComparison
+                : StringComparer.Ordinal.Compare(left.RelativePath, right.RelativePath);
+        }
+    }
+
+    private sealed class CatalogLimitComparer : IComparer<OrderedImagePath>
+    {
+        public static CatalogLimitComparer Instance { get; } = new();
+
+        public int Compare(OrderedImagePath left, OrderedImagePath right)
+        {
+            return CatalogOrderComparer.Instance.Compare(right, left);
+        }
+    }
 }

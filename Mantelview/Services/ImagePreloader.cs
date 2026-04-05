@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -15,7 +14,6 @@ public sealed class ImagePreloader : IDisposable
     private readonly Func<PixelSize> _screenSizeProvider;
     private readonly Action<PixelSize>? _bitmapLoadObserver;
     private readonly CancellationTokenSource _disposeCancellationSource = new();
-    private int _committedTransitions;
     private Task<PreloadedBitmap?>? _nextBitmapTask;
     private bool _isDisposed;
     private string? _nextPath;
@@ -83,7 +81,6 @@ public sealed class ImagePreloader : IDisposable
         Next = null;
         _nextPath = null;
         previousCurrent?.Dispose();
-        ReclaimReleasedBitmapMemory();
         _nextBitmapTask = StartPreloadTask();
     }
 
@@ -193,40 +190,6 @@ public sealed class ImagePreloader : IDisposable
             or NullReferenceException
             or NotSupportedException;
     }
-
-    // Avalonia/Skia releases native image memory promptly on Dispose, but Linux RSS can
-    // still lag behind unless the allocator is nudged to return free arenas.
-    private void ReclaimReleasedBitmapMemory()
-    {
-        _committedTransitions++;
-        if ((_committedTransitions & 3) != 0)
-        {
-            return;
-        }
-
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-        GC.WaitForPendingFinalizers();
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-
-        if (!OperatingSystem.IsLinux())
-        {
-            return;
-        }
-
-        try
-        {
-            _ = MallocTrim(0);
-        }
-        catch (DllNotFoundException)
-        {
-        }
-        catch (EntryPointNotFoundException)
-        {
-        }
-    }
-
-    [DllImport("libc", EntryPoint = "malloc_trim")]
-    private static extern int MallocTrim(nuint pad);
 
     private void ThrowIfDisposed()
     {
